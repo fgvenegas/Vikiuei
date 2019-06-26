@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 
-class Ramen(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.q_emb = nn.GRU(input_size=300, hidden_size=512, bidirectional=True)
 
+class Ramen(nn.Module):
+    def __init__(self, k, batch_size):
+        super().__init__()
+        self.k = k
+        self.batch_size = batch_size
+        self.q_emb = nn.GRU(input_size=300, hidden_size=512, bidirectional=True)
         self.projection = Projector(3584, 1024)
 
     def forward(self, imgs, q):
@@ -15,8 +17,12 @@ class Ramen(nn.Module):
         print(f'question embedding: {q_emb.shape}')
         c = self.early_fusion(imgs, q_emb)
         print(f'early fusion: {c.shape}')
-        b = self.projection(c)
-
+        c_reshaped = c.view(-1, c.shape[-1])
+        print(f'reshape of early fusion: {c_reshaped.shape}')
+        b_reshaped = self.projection(c_reshaped)
+        print(f'After projection: {b_reshaped.shape}')
+        b = b_reshaped.view(self.batch_size, self.k, -1)
+        print(f'Reshape of projection: {b.shape}')
 
 
     def early_fusion(self, imgs, q_emb):
@@ -36,26 +42,26 @@ class Projector(nn.Module):
         self.fc4 = nn.Linear(out_features, out_features)
     
     def forward(self, x):
-        residual = x
-        x = self.swish(self.fc1(x)) + residual
+        x = self.swish(self.fc1(x))
         residual = x
         x = self.swish(self.fc2(x)) + residual
         residual = x
         x = self.swish(self.fc3(x)) + residual
-        output = self.swish(self.fc4(x))
+        residual = x
+        output = self.swish(self.fc4(x)) + residual
         return output
 
 
     def swish(self, x):
-        return x * nn.Sigmoid(x)
+        return x * torch.sigmoid(x)
 
 
 
 if __name__ == '__main__':
 
     N = 3
-
-    D_img = (36, 2560)
+    k = 36
+    D_img = (k, 2560)
     img_feats = torch.randn((N,) + D_img, dtype=torch.float)
 
     seq_length = 5
@@ -65,6 +71,6 @@ if __name__ == '__main__':
     print(img_feats.shape)
     print(q_feats.shape)
 
-    model = Ramen()
+    model = Ramen(k, N)
 
     model.forward(img_feats, q_feats)
