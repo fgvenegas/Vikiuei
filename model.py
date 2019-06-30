@@ -3,12 +3,15 @@ import torch.nn as nn
 
 
 class Ramen(nn.Module):
-    def __init__(self, k, batch_size, n_classes):
+    def __init__(self, k, batch_size, n_classes, spatial_feats=True):
         super().__init__()
         self.k = k
         self.batch_size = batch_size
         self.q_emb = nn.GRU(input_size=300, hidden_size=512, bidirectional=True)
-        self.projection = Projector(3584, 1024)
+        if spatial_feats:
+            self.projection = Projector(2560 + 1024, 1024)
+        else:
+            self.projection = Projector(2048 + 1024, 1024)
         self.agg = nn.GRU(input_size=2048, hidden_size=1024, bidirectional=True)
         self.fc_swish = nn.Linear(2048, 2048)
         self.fc_output = nn.Linear(2048, n_classes)
@@ -17,30 +20,31 @@ class Ramen(nn.Module):
         # Take the concatenated features.
         _, last_hidden = self.q_emb(q)
         q_emb = torch.cat((last_hidden[0], last_hidden[1]), dim=1)
-        print(f'question embedding: {q_emb.shape}')
+        # print(f'question embedding: {q_emb.shape}')
         c = self.early_fusion(imgs, q_emb)
-        print(f'early fusion: {c.shape}')
+        # print(f'early fusion: {c.shape}')
         c_reshaped = c.view(-1, c.shape[-1])
-        print(f'reshape of early fusion: {c_reshaped.shape}')
+        # print(f'reshape of early fusion: {c_reshaped.shape}')
         b_reshaped = self.projection(c_reshaped)
-        print(f'After projection: {b_reshaped.shape}')
+        # print(f'After projection: {b_reshaped.shape}')
         b = b_reshaped.view(self.batch_size, self.k, -1)
-        print(f'Reshape of projection: {b.shape}')
+        # print(f'Reshape of projection: {b.shape}')
         qb_emb = self.late_fusion(q_emb, b)
-        print(f'qb emb {qb_emb.shape}')
+        # print(f'qb emb {qb_emb.shape}')
         _, last_hidden = self.agg(qb_emb.permute(1, 0, 2))
         agg_emb = torch.cat((last_hidden[0], last_hidden[1]), dim=1)
-        print(f'Agg bigru: {agg_emb.shape}')
+        # print(f'Agg bigru: {agg_emb.shape}')
         fc_swish = swish(self.fc_swish(agg_emb))
-        print(f'fc_swish shape: {fc_swish.shape}')
+        # print(f'fc_swish shape: {fc_swish.shape}')
         fc_output = self.fc_output(fc_swish)
-        print(f'fc_output shape: {fc_output.shape}')
+        # print(f'fc_output shape: {fc_output.shape}')
         output = torch.softmax(fc_output, 1)
-        print(f'Output: {output.shape}')
+        # print(f'Output: {output.shape}')
+        return output
 
     def early_fusion(self, imgs, q_emb):
         q_emb = q_emb.view(q_emb.shape[0], 1, q_emb.shape[1]).repeat(1, imgs.shape[1], 1)
-        print(f'question expanding embedding: {q_emb.shape}')
+        # print(f'question expanding embedding: {q_emb.shape}')
         return torch.cat((imgs, q_emb), dim=2)
     
     def late_fusion(self, q_emb, b):
