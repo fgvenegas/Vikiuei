@@ -42,6 +42,9 @@ def main():
 
     args = parser.parse_args()
 
+    # Get GPU support if available.
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     # Get all possible answers and map them with an integer.
     answers_mapper = get_answers_mapper([args.val_questions_path, args.train_questions_path])
 
@@ -54,6 +57,7 @@ def main():
 
     model = Ramen(k=args.n_regions, batch_size=args.batch_size, n_classes=n_classes,
                   spatial_feats=args.spatial_feats)
+    model.to(device)
 
     train_dataset = BottomFeaturesDataset(args.train_feats_dir,
                                           args.train_questions_path,
@@ -90,7 +94,7 @@ def main():
 
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
-            imgs, questions, labels = data
+            imgs, questions, labels = data[0].to(device), data[1].to(device), data[2].to(device)
             questions = questions.permute(1, 0, 2)
             # print(imgs.size(), questions.size(), labels.size())
     
@@ -122,7 +126,7 @@ def main():
 
         with torch.no_grad():
             for data in valloader:
-                imgs, questions, labels = data
+                imgs, questions, labels = data[0].to(device), data[1].to(device), data[2].to(device)
                 questions = questions.permute(1, 0, 2)
                 outputs = model(imgs, questions)
                 _, predicted = torch.max(outputs.data, 1)
