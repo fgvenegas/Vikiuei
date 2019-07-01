@@ -81,16 +81,30 @@ def main():
     
 
     criterion = nn.CrossEntropyLoss()
-    '''
-    First 4 epochs: 2.5 * epoch * 10-4
-    Epoch 5 to 10: 5 * 10-4
-    Decay 0.25 for every two epochs
-    '''
-    optimizer = optim.Adamax(model.parameters(), lr=0.0001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
+
+    lr_default = 1e-3
+    lr_decay_step = 2
+    lr_decay_rate = .25
+    lr_decay_epochs = range(10, 20, lr_decay_step)
+    gradual_warmup_steps = [0.5 * lr_default, 1.0 * lr_default, 1.5 * lr_default, 2.0 * lr_default]
+
+    optimizer = optim.Adamax(model.parameters(), lr=lr_default, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
 
     best_val_acc = 0
 
     for epoch in range(args.epochs):  # loop over the dataset multiple times
+
+        if epoch < len(gradual_warmup_steps):
+            optimizer.param_groups[0]['lr'] = gradual_warmup_steps[epoch]
+            if args.debug:
+                print('gradual warmup lr: %.4f' % optimizer.param_groups[0]['lr'])
+        elif epoch in lr_decay_epochs:
+            optimizer.param_groups[0]['lr'] *= lr_decay_rate
+            if args.debug:
+                print('decreased lr: %.4f' % optimizer.param_groups[0]['lr'])
+        else:
+            if args.debug:
+                print('lr: %.4f' % optimizer.param_groups[0]['lr'])
 
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
