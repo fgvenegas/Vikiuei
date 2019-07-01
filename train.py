@@ -172,6 +172,7 @@ def main():
                 'optimizer_state_dict': optimizer.state_dict(),
                 'val_loss': val_loss,
                 'val_acc': val_acc,
+                'answers_mapper': answers_mapper,
             }, checkpoint_path)
 
         print('Epoch {:d} | val_acc {:.2f}% | val_loss {:.4f}'.format(epoch + 1, val_acc, val_loss))
