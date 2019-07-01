@@ -1,6 +1,7 @@
 #!/bin/bash
 
-python3 train.py --epochs 10 \
+python3 train.py --debug 1 \
+                 --epochs 10 \
                  --batch_size 8 \
                  --print_every 10 \
                  --dataset miniCLEVR \
