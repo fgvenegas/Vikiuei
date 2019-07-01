@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--epochs', default=10, type=int)
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--n_regions', default=36, type=int)
+    parser.add_argument('--spatial_feats', default=0, type=int, help='Add spatial features to bottom-up features.')
     parser.add_argument('--print_every', default=36, type=int, help='Print every X mini batches.')
 
     # Datasets
@@ -51,21 +52,24 @@ def main():
 
     n_classes = len(answers_mapper)
 
-    model = Ramen(k=args.n_regions, batch_size=args.batch_size, n_classes=n_classes, spatial_feats=False)
+    model = Ramen(k=args.n_regions, batch_size=args.batch_size, n_classes=n_classes,
+                  spatial_feats=args.spatial_feats)
 
     train_dataset = BottomFeaturesDataset(args.train_feats_dir,
                                           args.train_questions_path,
                                           args.train_question_embeddings_path,
                                           answers_mapper,
                                           args.dataset,
-                                          'train')
+                                          'train',
+                                          spatial_feats=args.spatial_feats)
     
     val_dataset = BottomFeaturesDataset(args.val_feats_dir,
                                         args.val_questions_path,
                                         args.val_question_embeddings_path,
                                         answers_mapper,
                                         args.dataset,
-                                        'val')
+                                        'val',
+                                        spatial_feats=args.spatial_feats)
     
     trainloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
     

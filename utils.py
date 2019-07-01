@@ -19,13 +19,15 @@ def get_answers_mapper(question_paths):
 
 class BottomFeaturesDataset(Dataset):
 
-    def __init__(self, feats_dir, questions_path, questions_emb_path, answers_mapper, dataset, type_):
+    def __init__(self, feats_dir, questions_path, questions_emb_path,
+                 answers_mapper, dataset, type_, spatial_feats=False):
         self.questions_path = questions_path
         self.answers_mapper = answers_mapper
         self.q2img_mapper = self.load_mapper('image_index')
         self.q2answer_mapper = self.load_mapper('answer')
         self.q_emb = np.load(questions_emb_path)
         self.feats_dir = feats_dir
+        self.spatial_feats = spatial_feats
         if dataset == 'miniCLEVR':
             self.get_img_name = lambda x: f'CLEVR_{type_}_{str(x).zfill(6)}.npy'
     
@@ -46,5 +48,21 @@ class BottomFeaturesDataset(Dataset):
         question = self.q_emb[idx]
         img_filename = self.get_img_name(self.q2img_mapper[idx])
         label = self.answers_mapper[self.q2answer_mapper[idx]]
-        img = np.load(os.path.join(self.feats_dir, img_filename), allow_pickle=True).item()['features']
-        return torch.from_numpy(img), torch.from_numpy(question), label
+        feats = np.load(os.path.join(self.feats_dir, img_filename), allow_pickle=True).item()
+        img = feats['features']
+        if self.spatial_feats:
+            spatial_feats = self.get_spatial_feats(feats['boxes'])
+            img = np.concatenate([img, spatial_feats], axis=1)
+        return torch.from_numpy(img).float(), torch.from_numpy(question).float(), label
+    
+    def get_spatial_feats(self, boxes):
+        spatial_feats = []
+        for box in boxes:
+            height_step = (box[2] - box[0]) / 16
+            width_step = (box[3] - box[1]) / 16
+
+            width_points = [box[1] + (i * width_step) + (width_step / 2) for i in range(16)]
+            height_points = [box[0] + (i * height_step) + (height_step / 2) for i in range(16)]
+
+            spatial_feats.append(np.concatenate([[x, y] for x in height_points for y in width_points]))
+        return np.vstack(spatial_feats)
