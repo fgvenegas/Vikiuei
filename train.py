@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from model import Ramen
 from utils import BottomFeaturesDataset, get_answers_mapper
@@ -106,8 +107,12 @@ def main():
             if args.debug:
                 print('lr: %.4f' % optimizer.param_groups[0]['lr'])
 
-        running_loss = 0.0
-        for i, data in enumerate(trainloader, 0):
+        current_loss = 0.0
+        tqdm_trainloader = tqdm(trainloader)
+
+        train_batches = 0
+
+        for data in tqdm_trainloader:
             imgs, questions, labels = data[0].to(device), data[1].to(device), data[2].to(device)
             questions = questions.permute(1, 0, 2)
             # print(imgs.size(), questions.size(), labels.size())
@@ -120,14 +125,14 @@ def main():
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
-            if i % args.print_every == (args.print_every - 1):
-                print('[%d, %5d] loss: %.3f' %
-                    (epoch + 1, i + 1, running_loss / args.print_every))
-                running_loss = 0.0
-
+            train_batches += 1
+            current_loss += loss.item()
+            
+            tqdm_trainloader.set_description('Epoch {}/{}'.format(epoch + 1, args.epochs))
+            tqdm_trainloader.set_postfix(loss=current_loss / train_batches)
+            
             if args.debug:
-                if i == 3:
+                if train_batches == 3:
                     break
     
         correct = 0
@@ -135,11 +140,9 @@ def main():
         tmp_val_loss = 0
         val_batches = 0
 
-        if args.debug:
-            val_batches = 0
-
         with torch.no_grad():
-            for data in valloader:
+            tqdm_valloader = tqdm(valloader)
+            for data in tqdm_valloader:
                 imgs, questions, labels = data[0].to(device), data[1].to(device), data[2].to(device)
                 questions = questions.permute(1, 0, 2)
                 outputs = model(imgs, questions)
@@ -147,9 +150,12 @@ def main():
                 tmp_val_loss += criterion(outputs, labels)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+                val_batches += 1
+
+                tqdm_valloader.set_description('Validation')
+                tqdm_valloader.set_postfix(loss=tmp_val_loss / val_batches)
 
                 if args.debug:
-                    val_batches += 1
                     if val_batches == 3:
                         break
         
