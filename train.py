@@ -76,9 +76,11 @@ def main():
                                         'val',
                                         spatial_feats=args.spatial_feats)
     
-    trainloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    trainloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4,
+                             drop_last=True)
     
-    valloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    valloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4,
+                           drop_last=True)
     
 
     criterion = nn.CrossEntropyLoss()
