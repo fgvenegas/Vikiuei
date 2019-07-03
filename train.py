@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from model import Ramen
-from utils import BottomFeaturesDataset, get_answers_mapper
+from utils import ClevrBottomFeaturesDataset, get_answers_mapper, GqaBottomFeaturesDataset, get_gqa_answers_mapper
 
 
 def main():
@@ -33,6 +33,7 @@ def main():
     parser.add_argument('--train_questions_path', default='./', type=str, help='Path to the original json file of the training questions.')
     parser.add_argument('--train_feats_dir', default='./', type=str, help='Directory of the bottom-up features of the training images.')
     parser.add_argument('--train_question_embeddings_path', default='./', type=str, help='Path to the glove embeddings of the training questions')
+    parser.add_argument('--train_question_embeddings_dir', default='./', type=str, help='Directory of the glove embeddings of the training questions')
 
     # Checkpoint
     parser.add_argument('--checkpoints_dir', default='./checkpoints', type=str, help='Directory for checkpoints.')
@@ -46,41 +47,57 @@ def main():
     # Get GPU support if available.
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    # Get all possible answers and map them with an integer.
-    answers_mapper = get_answers_mapper([args.val_questions_path, args.train_questions_path])
-
     # Make checkpoints directory.
     os.makedirs(args.checkpoints_dir, exist_ok=True)
     # Path to the best model checkpoint.
     checkpoint_path = os.path.join(args.checkpoints_dir, f'{args.experiment_name}.tar')
 
-    n_classes = len(answers_mapper)
+    if args.dataset == 'miniCLEVR':
 
-    model = Ramen(k=args.n_regions, batch_size=args.batch_size, n_classes=n_classes,
-                  spatial_feats=args.spatial_feats)
-    model.to(device)
+        # Get all possible answers and map them with an integer.
+        answers_mapper = get_answers_mapper([args.val_questions_path, args.train_questions_path])
 
-    train_dataset = BottomFeaturesDataset(args.train_feats_dir,
-                                          args.train_questions_path,
-                                          args.train_question_embeddings_path,
-                                          answers_mapper,
-                                          args.dataset,
-                                          'train',
-                                          spatial_feats=args.spatial_feats)
-    
-    val_dataset = BottomFeaturesDataset(args.val_feats_dir,
-                                        args.val_questions_path,
-                                        args.val_question_embeddings_path,
-                                        answers_mapper,
-                                        args.dataset,
-                                        'val',
-                                        spatial_feats=args.spatial_feats)
+        train_dataset = ClevrBottomFeaturesDataset(args.train_feats_dir,
+                                                args.train_questions_path,
+                                                args.train_question_embeddings_path,
+                                                answers_mapper,
+                                                'train',
+                                                spatial_feats=args.spatial_feats)
+        
+        val_dataset = ClevrBottomFeaturesDataset(args.val_feats_dir,
+                                                args.val_questions_path,
+                                                args.val_question_embeddings_path,
+                                                answers_mapper,
+                                                'val',
+                                                spatial_feats=args.spatial_feats)
+    elif args.dataset == 'miniGQA':
+
+        # Get all possible answers and map them with an integer.
+        answers_mapper = get_gqa_answers_mapper([args.val_questions_path, args.train_questions_path])
+
+        train_dataset = GqaBottomFeaturesDataset(answers_mapper,
+                                                args.train_questions_path,
+                                                args.train_feats_dir,   
+                                                q_embs_dir=args.train_question_embeddings_dir,
+                                                spatial_feats=args.spatial_feats)
+        
+        val_dataset = GqaBottomFeaturesDataset(answers_mapper,
+                                                args.train_questions_path,
+                                                args.train_feats_dir,   
+                                                q_embs_path=args.val_question_embeddings_path,
+                                                spatial_feats=args.spatial_feats)
     
     trainloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4,
                              drop_last=True)
     
     valloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4,
                            drop_last=True)
+    
+    n_classes = len(answers_mapper)
+
+    model = Ramen(k=args.n_regions, batch_size=args.batch_size, n_classes=n_classes,
+                  spatial_feats=args.spatial_feats)
+    model.to(device)
     
 
     criterion = nn.CrossEntropyLoss()
