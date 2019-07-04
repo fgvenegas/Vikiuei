@@ -1,3 +1,4 @@
+import h5py
 import json
 import numpy as np
 import os
@@ -19,16 +20,17 @@ def get_answers_mapper(question_paths):
 
 class ClevrBottomFeaturesDataset(Dataset):
 
-    def __init__(self, feats_dir, questions_path, questions_emb_path,
-                 answers_mapper, type_, spatial_feats=False):
+    def __init__(self, feats_path, questions_path, questions_emb_path,
+                 answers_mapper, img2idx_mapper_path, spatial_feats=False):
         self.questions_path = questions_path
         self.answers_mapper = answers_mapper
         self.q2img_mapper = self.load_mapper('image_index')
         self.q2answer_mapper = self.load_mapper('answer')
+        with open(img2idx_mapper_path, 'r') as f:
+            self.img2idx_mapper = json.load(f)['image_id_to_ix']
         self.q_emb = np.load(questions_emb_path)
-        self.feats_dir = feats_dir
+        self.feats = h5py.File(feats_path, 'r')
         self.spatial_feats = spatial_feats
-        self.get_img_name = lambda x: f'CLEVR_{type_}_{str(x).zfill(6)}.npy'
     
     def load_mapper(self, type_):
         with open(self.questions_path, 'r') as f:
@@ -45,14 +47,14 @@ class ClevrBottomFeaturesDataset(Dataset):
 
     def __getitem__(self, idx):
         question = self.q_emb[idx]
-        img_filename = self.get_img_name(self.q2img_mapper[idx])
         label = self.answers_mapper[self.q2answer_mapper[idx]]
-        feats = np.load(os.path.join(self.feats_dir, img_filename), allow_pickle=True).item()
-        img = feats['features']
+        image_id = str(self.q2img_mapper[idx])
+        feats = self.feats['image_features'][self.img2idx_mapper[image_id]]
         if self.spatial_feats:
-            spatial_feats = self.get_spatial_feats(feats['boxes'])
-            img = np.concatenate([img, spatial_feats], axis=1)
-        return torch.from_numpy(img).float(), torch.from_numpy(question).float(), label
+            boxes = self.feats['spatial_features'][self.img2idx_mapper[image_id]]
+            spatial_feats = self.get_spatial_feats(boxes[:,:4])
+            feats = np.concatenate([feats, spatial_feats], axis=1)
+        return torch.from_numpy(feats).float(), torch.from_numpy(question).float(), label
     
     def get_spatial_feats(self, boxes):
         spatial_feats = []
@@ -65,6 +67,7 @@ class ClevrBottomFeaturesDataset(Dataset):
 
             spatial_feats.append(np.concatenate([[x, y] for x in height_points for y in width_points]))
         return np.vstack(spatial_feats)
+
 
 
 def get_gqa_answers_mapper(questions_paths):

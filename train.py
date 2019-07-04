@@ -28,12 +28,16 @@ def main():
     parser.add_argument('--val_questions_path', default='./', type=str, help='Path to the original json file of the validation questions.')
     parser.add_argument('--val_feats_dir', default='./', type=str, help='Directory of the bottom-up features of the validation images.')
     parser.add_argument('--val_question_embeddings_path', default='./', type=str, help='Path to the glove embeddings of the validation questions')
+    parser.add_argument('--val_feats_path', default='./', type=str, help='Path of the bottom-up features of the validation images.')
+    parser.add_argument('--val_img2index_path', default='./', type=str)
 
     ## Training
     parser.add_argument('--train_questions_path', default='./', type=str, help='Path to the original json file of the training questions.')
     parser.add_argument('--train_feats_dir', default='./', type=str, help='Directory of the bottom-up features of the training images.')
     parser.add_argument('--train_question_embeddings_path', default='./', type=str, help='Path to the glove embeddings of the training questions')
     parser.add_argument('--train_question_embeddings_dir', default='./', type=str, help='Directory of the glove embeddings of the training questions')
+    parser.add_argument('--train_img2index_path', default='./', type=str)
+    parser.add_argument('--train_feats_path', default='./', type=str, help='Path of the bottom-up features of the validation images.')
 
     # Checkpoint
     parser.add_argument('--checkpoints_dir', default='./checkpoints', type=str, help='Directory for checkpoints.')
@@ -53,22 +57,26 @@ def main():
     checkpoint_path = os.path.join(args.checkpoints_dir, f'{args.experiment_name}.tar')
 
     if args.dataset == 'miniCLEVR':
+        print(args)
+
+        # (FEATS_PATH, QUESTIONS_VAL_PATH, QUESTIONS_EMBEDDING_VAL,
+        #                       answers_mapper, IMG2IDX_MAPPER_PATH, spatial_feats=True)
 
         # Get all possible answers and map them with an integer.
         answers_mapper = get_answers_mapper([args.val_questions_path, args.train_questions_path])
 
-        train_dataset = ClevrBottomFeaturesDataset(args.train_feats_dir,
+        train_dataset = ClevrBottomFeaturesDataset(args.train_feats_path,
                                                 args.train_questions_path,
                                                 args.train_question_embeddings_path,
                                                 answers_mapper,
-                                                'train',
+                                                args.train_img2index_path,
                                                 spatial_feats=args.spatial_feats)
         
-        val_dataset = ClevrBottomFeaturesDataset(args.val_feats_dir,
+        val_dataset = ClevrBottomFeaturesDataset(args.val_feats_path,
                                                 args.val_questions_path,
                                                 args.val_question_embeddings_path,
                                                 answers_mapper,
-                                                'val',
+                                                args.val_img2index_path,
                                                 spatial_feats=args.spatial_feats)
     elif args.dataset == 'miniGQA':
 
