@@ -38,8 +38,9 @@ class Ramen(nn.Module):
         # print(f'Reshape of projection: {b.shape}')
         qb_emb = self.late_fusion(q_emb, b)
         # print(f'qb emb {qb_emb.shape}')
-        _, last_hidden = self.agg(qb_emb.permute(1, 0, 2))
-        agg_emb = torch.cat((last_hidden[0], last_hidden[1]), dim=1)
+        out, last_hidden = self.agg(qb_emb.permute(1, 0, 2))
+        agg_emb = out[-1, :, :]
+        #agg_emb = torch.cat((last_hidden[0], last_hidden[1]), dim=1)
         # print(f'Agg bigru: {agg_emb.shape}')
         fc_swish = swish(self.fc_swish(agg_emb))
         # print(f'fc_swish shape: {fc_swish.shape}')
