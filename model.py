@@ -9,8 +9,10 @@ class Ramen(nn.Module):
         self.batch_size = batch_size
         self.q_emb = nn.GRU(input_size=300, hidden_size=512, bidirectional=True)
         if spatial_feats:
+            self.bn = nn.BatchNorm1d(2560 + 1024)
             self.projection = Projector(2560 + 1024, 1024)
         else:
+            self.bn = nn.BatchNorm1d(2048 + 1024)
             self.projection = Projector(2048 + 1024, 1024)
         self.agg = nn.GRU(input_size=2048, hidden_size=1024, bidirectional=True)
         self.fc_swish = nn.Linear(2048, 2048)
@@ -22,9 +24,11 @@ class Ramen(nn.Module):
         q_emb = torch.cat((last_hidden[0], last_hidden[1]), dim=1)
         # print(f'question embedding: {q_emb.shape}')
         c = self.early_fusion(imgs, q_emb)
-        # print(f'early fusion: {c.shape}')
+        #print(f'early fusion: {c.shape}')
         c_reshaped = c.view(-1, c.shape[-1])
-        # print(f'reshape of early fusion: {c_reshaped.shape}')
+        #print(f'reshape of early fusion: {c_reshaped.shape}')
+        c_reshaped = self.bn(c_reshaped)
+        #print(f'Batch norm: {c_reshaped.shape}')
         b_reshaped = self.projection(c_reshaped)
         # print(f'After projection: {b_reshaped.shape}')
         b = b_reshaped.view(self.batch_size, self.k, -1)
