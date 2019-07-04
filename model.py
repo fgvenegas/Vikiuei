@@ -20,9 +20,12 @@ class Ramen(nn.Module):
 
     def forward(self, imgs, q):
         # Take the concatenated features.
-        _, last_hidden = self.q_emb(q)
-        q_emb = torch.cat((last_hidden[0], last_hidden[1]), dim=1)
-        # print(f'question embedding: {q_emb.shape}')
+        out, last_hidden = self.q_emb(q)
+        q_emb = out[-1, :, :]
+        #print(f'out shape: {out.shape}')
+        #print(f'out shape: {out[-1, :, :].shape}')
+        #q_emb = torch.cat((last_hidden[0], last_hidden[1]), dim=1)
+        #print(f'question embedding: {q_emb.shape}')
         c = self.early_fusion(imgs, q_emb)
         #print(f'early fusion: {c.shape}')
         c_reshaped = c.view(-1, c.shape[-1])
