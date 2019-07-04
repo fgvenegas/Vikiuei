@@ -29,6 +29,11 @@ class ClevrBottomFeaturesDataset(Dataset):
         with open(img2idx_mapper_path, 'r') as f:
             self.img2idx_mapper = json.load(f)['image_id_to_ix']
         self.q_emb = np.load(questions_emb_path)
+        with h5py.File(feats_path, 'r') as f:
+            self.feats = {
+                'image_features': f['image_features'],
+                'spatial_features': f['spatial_features'],
+            }
         self.feats = h5py.File(feats_path, 'r')
         self.spatial_feats = spatial_feats
     
